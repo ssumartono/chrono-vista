@@ -1,7 +1,7 @@
 import { getSession } from '@/lib/auth';
 import { db } from '@/db';
-import { assets, exifMetadata, importItems, importSessions, photos } from '@/db/schema';
-import { resolvePhotoDate } from '@/lib/photo-date';
+import { assets, exifMetadata, importItems, importSessions, locations, photos } from '@/db/schema';
+import { readPhotoExif } from '@/lib/photo-exif';
 import { eq } from 'drizzle-orm';
 import { DERIVATIVES_DIR, ORIGINALS_DIR, ensureStorageDirectories } from '@/lib/storage';
 import { createHash, randomUUID } from 'node:crypto';
@@ -38,7 +38,7 @@ export async function POST(request: Request) {
       if (!file.size || file.size > maxFileBytes) throw new Error('Ukuran file harus 1 byte–25 MB.');
       const input = Buffer.from(await file.arrayBuffer());
       const metadata = await sharp(input, { failOn: 'error' }).metadata();
-      const photoDate = resolvePhotoDate(metadata.exif, file.lastModified);
+      const { photoDate, exif, location } = await readPhotoExif(metadata.exif, file.lastModified);
       const mime = metadata.format ? formats[metadata.format] : undefined;
       if (!mime) throw new Error('Hanya JPEG, PNG, dan WebP yang didukung.');
       const checksum = createHash('sha256').update(input).digest('hex');
@@ -62,7 +62,8 @@ export async function POST(request: Request) {
         await writeFile(thumbnailPath, thumbnail, { flag: 'wx' }); written.push(thumbnailPath);
         db.transaction(tx => {
           tx.insert(photos).values({ id: photoId!, filename: path.basename(file.name).slice(0, 255), checksum, capturedAt: photoDate.date, status: photoDate.source === 'exif' && !photoDate.timezoneAssumed ? 'Ready' : 'Need Review', visibility: 'Private' }).run();
-          tx.insert(exifMetadata).values({ photoId: photoId!, rawJson: JSON.stringify({ dateSource: photoDate.source, originalDate: photoDate.original, offset: photoDate.offset, timezoneAssumed: photoDate.timezoneAssumed }) }).run();
+          tx.insert(exifMetadata).values({ photoId: photoId!, ...exif }).run();
+          if (location) tx.insert(locations).values({ id: randomUUID(), photoId: photoId!, ...location }).run();
           tx.insert(assets).values([
             { id: randomUUID(), photoId: photoId!, type: 'original', path: originalPath, mime, width: metadata.width, height: metadata.height, bytes: input.length, checksum },
             { id: randomUUID(), photoId: photoId!, type: 'viewer', path: viewerPath, mime: 'image/webp', bytes: viewer.length },
