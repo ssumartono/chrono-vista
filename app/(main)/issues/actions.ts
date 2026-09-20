@@ -18,12 +18,20 @@ export async function createIssueAction(form: FormData) {
   await owner();
   const title = value(form, 'title', 150);
   if (!title) throw new Error('Judul Issue wajib diisi.');
+  const initialPhotoId = value(form, 'photoId', 100);
   const id = randomUUID();
   db.transaction(tx => {
     const highest = tx.select({ value: sql<number>`coalesce(max(cast(substr(${issues.code}, 4) as integer)), 0)` }).from(issues).get()?.value ?? 0;
     const code = `FI_${String(highest + 1).padStart(3, '0')}`;
     const slugBase = title.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 70) || 'issue';
     tx.insert(issues).values({ id, code, slug: `${slugBase}-${code.toLowerCase()}`, title, status: 'Draft', visibility: 'Private' }).run();
+    if (initialPhotoId) {
+      const photo = tx.select({ id: photos.id, filename: photos.filename }).from(photos).where(and(eq(photos.id, initialPhotoId), isNull(photos.deletedAt))).get();
+      if (!photo) throw new Error('Foto sampul tidak ditemukan.');
+      const pageId = randomUUID();
+      tx.insert(issuePages).values({ id: pageId, issueId: id, pageNumber: 1, layoutType: 'cover' }).run();
+      tx.insert(issuePagePhotos).values({ pageId, photoId: photo.id, position: 1, altText: photo.filename }).run();
+    }
   });
   revalidatePath('/issues');
   redirect(`/issues/${id}/edit`);
