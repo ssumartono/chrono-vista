@@ -12,6 +12,7 @@ import { setPhotoMetadataPublic } from '@/lib/photo-public-metadata';
 
 export async function savePhotoLocationAction(photoId: string, form: FormData) {
   if (!await getSession()) throw new Error('Sesi berakhir. Masuk kembali.');
+  const returnPath = form.get('returnTo') === 'map' ? `/photos/${photoId}/map` : `/photos/${photoId}`;
   const photo = db.select({ id: photos.id }).from(photos).where(and(eq(photos.id, photoId), isNull(photos.deletedAt))).get();
   if (!photo) throw new Error('Foto tidak ditemukan.');
   const parsed = parseManualLocation({
@@ -19,12 +20,21 @@ export async function savePhotoLocationAction(photoId: string, form: FormData) {
     latitude: String(form.get('latitude') ?? ''),
     longitude: String(form.get('longitude') ?? ''),
   });
-  if (!parsed.location) redirect(`/photos/${photoId}?locationError=${encodeURIComponent(parsed.error)}`);
+  if (!parsed.location) redirect(`${returnPath}?locationError=${encodeURIComponent(parsed.error)}`);
   const existing = db.select({ id: locations.id }).from(locations).where(eq(locations.photoId, photoId)).get();
   if (existing) db.update(locations).set(parsed.location).where(eq(locations.id, existing.id)).run();
   else db.insert(locations).values({ id: randomUUID(), photoId, ...parsed.location }).run();
-  revalidatePath(`/photos/${photoId}`); revalidatePath('/archive'); revalidatePath('/timeline');
-  redirect(`/photos/${photoId}?locationSaved=1`);
+  revalidatePath(`/photos/${photoId}`); revalidatePath(`/photos/${photoId}/map`); revalidatePath('/archive'); revalidatePath('/timeline');
+  redirect(`${returnPath}?locationSaved=1`);
+}
+
+export async function deletePhotoLocationAction(photoId: string) {
+  if (!await getSession()) throw new Error('Sesi berakhir. Masuk kembali.');
+  const photo = db.select({ id: photos.id }).from(photos).where(and(eq(photos.id, photoId), isNull(photos.deletedAt))).get();
+  if (!photo) throw new Error('Foto tidak ditemukan.');
+  db.delete(locations).where(eq(locations.photoId, photoId)).run();
+  revalidatePath(`/photos/${photoId}`); revalidatePath(`/photos/${photoId}/map`); revalidatePath('/archive'); revalidatePath('/timeline');
+  redirect(`/photos/${photoId}/map?locationDeleted=1`);
 }
 
 export async function addPhotoToIssueAction(photoId: string, form: FormData) {

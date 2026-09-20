@@ -15,3 +15,28 @@
     font-family: var(--font-sans);
   }
 }
+
+.chrono-map-pin {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 3px solid white;
+  border-radius: 50%;
+  background: #116a5c;
+  box-shadow: 0 2px 10px rgb(16 44 37 / 30%);
+  color: white;
+  font-size: 17px;
+}
+
+.chrono-map-pin.current {
+  width: 44px;
+  height: 44px;
+  background: #0b6758;
+  font-size: 21px;
+}
+
+.chrono-map-dark .leaflet-tile-pane {
+  filter: invert(90%) hue-rotate(180deg) saturate(70%) brightness(85%);
+}
