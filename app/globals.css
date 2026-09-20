@@ -1,0 +1,17 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ivory: #f4f3ea;
+  --color-charcoal: #1a1a1a;
+  --color-emerald: #145e54;
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-playfair), ui-serif, Georgia, serif;
+}
+
+@layer base {
+  body {
+    background-color: var(--color-ivory);
+    color: var(--color-charcoal);
+    font-family: var(--font-sans);
+  }
+}
