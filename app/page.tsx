@@ -14,7 +14,7 @@ export default function Home() {
     <header className={styles.header}>
       <Link href="/" className={styles.brand}><Aperture size={35} strokeWidth={2.5}/><span>ChronoVista</span></Link>
       <span className={styles.divider}/>
-      <nav className={styles.topNav} aria-label="Navigasi utama"><Link href="#fitur">Explore</Link><Link href="#fitur">Issues</Link><Link href="#tentang">Tentang</Link></nav>
+      <nav className={styles.topNav} aria-label="Navigasi utama"><Link href="#fitur">Explore</Link><Link href="/published">Issues</Link><Link href="#tentang">Tentang</Link></nav>
       <div className={styles.headerActions}><Link href="/login">Masuk</Link><Link href="/dashboard" className={styles.primarySmall}>Buka Arsip <ArrowRight size={17}/></Link></div>
     </header>
 
