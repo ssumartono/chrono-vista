@@ -1,10 +1,16 @@
-import Link from 'next/link';
-import { ArrowLeft } from 'lucide-react';
+import { desc, eq, sql } from 'drizzle-orm';
 import { db } from '@/db';
-import { importSessions } from '@/db/schema';
-import { desc } from 'drizzle-orm';
+import { assets, importItems, importSessions } from '@/db/schema';
+import { ImportHistoryWorkspace, type ImportSessionView } from '@/components/ImportHistoryWorkspace';
 
 export default function ImportHistoryPage() {
-  const sessions = db.select().from(importSessions).orderBy(desc(importSessions.startedAt)).limit(100).all();
-  return <div className="mx-auto max-w-5xl space-y-5"><Link href="/import" className="flex items-center gap-2 text-sm text-[#116a5c]"><ArrowLeft size={17}/>Kembali ke Import</Link><div><h1 className="text-3xl font-extrabold">Riwayat Import</h1><p className="text-sm text-[#65747a]">Proses import terbaru yang tersimpan di SQLite.</p></div><div className="overflow-x-auto rounded border border-[#d8dfdc] bg-white"><table className="w-full min-w-150 text-left text-sm"><thead className="bg-[#f4f8f5] text-[#586b6b]"><tr><th className="p-4">Waktu</th><th className="p-4">Sumber</th><th className="p-4">Status</th><th className="p-4">Hasil</th></tr></thead><tbody className="divide-y divide-[#e2e8e4]">{sessions.map(session => { let totals: { imported?: number; duplicate?: number; failed?: number } = {}; try { totals = JSON.parse(session.totalsJson ?? '{}'); } catch {} return <tr key={session.id}><td className="p-4">{session.startedAt.toLocaleString('id-ID')}</td><td className="p-4">{session.source}</td><td className="p-4">{session.status}</td><td className="p-4">{totals.imported ?? 0} berhasil · {totals.duplicate ?? 0} duplikat · {totals.failed ?? 0} gagal</td></tr>; })}</tbody></table>{!sessions.length && <p className="p-8 text-center text-[#65747a]">Belum ada riwayat import.</p>}</div></div>;
+  const rows = db.select().from(importSessions).orderBy(desc(importSessions.startedAt)).limit(500).all();
+  const sizes = db.select({ sessionId: importItems.sessionId, bytes: sql<number>`coalesce(sum(${assets.bytes}), 0)` }).from(importItems).leftJoin(assets, sql`${assets.photoId} = ${importItems.photoId} and ${assets.type} = 'original'`).where(eq(importItems.status, 'Imported')).groupBy(importItems.sessionId).all();
+  const bySession = new Map(sizes.map(row => [row.sessionId, row.bytes]));
+  const sessions: ImportSessionView[] = rows.map(row => {
+    let totals: { imported?: number; duplicate?: number; failed?: number } = {};
+    try { totals = JSON.parse(row.totalsJson ?? '{}'); } catch {}
+    return { id: row.id, source: row.source, status: row.status, startedAt: row.startedAt.toISOString(), completedAt: row.completedAt?.toISOString() ?? null, imported: totals.imported ?? 0, duplicate: totals.duplicate ?? 0, failed: totals.failed ?? 0, bytes: bySession.get(row.id) ?? 0 };
+  });
+  return <ImportHistoryWorkspace sessions={sessions}/>;
 }
