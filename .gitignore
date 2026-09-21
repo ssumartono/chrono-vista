@@ -44,3 +44,4 @@ next-env.d.ts
 /chronovista.db*
 /media/
 /backups/
+/.next-dev*.log
