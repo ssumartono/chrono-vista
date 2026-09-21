@@ -3,6 +3,7 @@ import { basename, resolve, sep } from 'node:path';
 import { PDFDocument, PDFFont, StandardFonts, rgb } from 'pdf-lib';
 import sharp from 'sharp';
 import { defaultPdfMargins, PdfMargins } from '@/lib/issue-pdf-settings';
+import { getAppPreferences } from '@/lib/app-preferences';
 
 type PdfPage = { imagePath: string; caption: string | null; filename: string };
 const pageWidth = 595.28;
@@ -36,7 +37,9 @@ export async function buildIssuePdf(input: { code: string; title: string; subtit
   for (const [index, item] of input.pages.entries()) {
     const fullPath = await realpath(resolve(item.imagePath));
     if (!fullPath.startsWith(`${root}${sep}`)) throw new Error('Lokasi gambar tidak valid.');
-    const jpeg = await sharp(await readFile(fullPath)).rotate().flatten({ background: '#ffffff' }).jpeg({ quality: 82 }).toBuffer();
+    const imagePipeline = sharp(await readFile(fullPath)).rotate().flatten({ background: '#ffffff' });
+    if (index === 0 && getAppPreferences().monochromeCover) imagePipeline.grayscale();
+    const jpeg = await imagePipeline.jpeg({ quality: 82 }).toBuffer();
     const image = await pdf.embedJpg(jpeg);
     const page = pdf.addPage([pageWidth, pageHeight]);
     let imageTop = pageHeight - top;

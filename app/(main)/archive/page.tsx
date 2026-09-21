@@ -2,6 +2,7 @@ import { and, desc, eq, isNull, like, or, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import { assets, exifMetadata, locations, photos } from '@/db/schema';
 import { ArchiveWorkspace, type ArchivePhoto } from '@/components/ArchiveWorkspace';
+import { getAppPreferences } from '@/lib/app-preferences';
 
 type SearchParams = { q?: string; status?: string; year?: string; camera?: string; location?: string; sort?: string; view?: string; page?: string };
 const hasIssue = sql<boolean>`exists(select 1 from issue_page_photos ipp where ipp.photo_id = ${photos.id})`;
@@ -24,5 +25,5 @@ export default async function ArchivePage({ searchParams }: { searchParams: Prom
   const items: ArchivePhoto[] = rows.map(row => ({ ...row, capturedAt: row.capturedAt?.toISOString() ?? null, thumbnailUrl: row.assetId ? `/api/assets/${row.assetId}` : null }));
   const stats = db.select({ total: sql<number>`count(*)`, review: sql<number>`sum(case when ${photos.status} = 'Need Review' then 1 else 0 end)`, privateCount: sql<number>`sum(case when ${photos.visibility} = 'Private' then 1 else 0 end)`, noIssue: sql<number>`sum(case when not ${hasIssue} then 1 else 0 end)` }).from(photos).where(isNull(photos.deletedAt)).get();
   const years = db.select({ year: sql<string>`strftime('%Y', ${photos.capturedAt}, 'unixepoch')`, count: sql<number>`count(*)` }).from(photos).where(and(isNull(photos.deletedAt), sql`${photos.capturedAt} is not null`)).groupBy(sql`strftime('%Y', ${photos.capturedAt}, 'unixepoch')`).orderBy(desc(sql`strftime('%Y', ${photos.capturedAt}, 'unixepoch')`)).all();
-  return <ArchiveWorkspace items={items} total={total} stats={{ total: stats?.total ?? 0, review: stats?.review ?? 0, privateCount: stats?.privateCount ?? 0, noIssue: stats?.noIssue ?? 0 }} years={years} filters={{ q, status, year, camera, location, sort, view, page }} />;
+  return <ArchiveWorkspace items={items} total={total} stats={{ total: stats?.total ?? 0, review: stats?.review ?? 0, privateCount: stats?.privateCount ?? 0, noIssue: stats?.noIssue ?? 0 }} years={years} filters={{ q, status, year, camera, location, sort, view, page }} defaultGridSize={getAppPreferences().gridSize} />;
 }

@@ -3,6 +3,7 @@ import { BookOpen, CalendarDays, Database, FolderUp, HeartPulse, ImageIcon, Plus
 import { db } from '@/db';
 import { assets, backups, importItems, importSessions, issues, livePhotos, photos } from '@/db/schema';
 import { and, count, desc, eq, isNull, sql } from 'drizzle-orm';
+import { getAppPreferences } from '@/lib/app-preferences';
 
 const card = 'rounded-md border border-[#d9dfdc] bg-white';
 const monthName = new Intl.DateTimeFormat('id-ID', { month: 'short' });
@@ -28,7 +29,7 @@ export default function DashboardPage() {
   const counts = months.map(month => ({ ...month, value: grouped.find(row => row.month === month.key)?.value ?? 0 }));
   const highest = Math.max(1, ...counts.map(item => item.value));
   const rangeLabel = range?.first && range.last ? `${new Date(range.first * 1000).getFullYear()}–${new Date(range.last * 1000).getFullYear()}` : '—';
-  const stats = [{ label: 'Total Foto', value: photoCount.toLocaleString('id-ID'), icon: ImageIcon }, { label: 'Issue', value: issueCount.toLocaleString('id-ID'), icon: BookOpen }, { label: 'LIVE', value: liveCount.toLocaleString('id-ID'), icon: HeartPulse }, { label: 'Rentang Arsip', value: rangeLabel, icon: CalendarDays }];
+  const stats = getAppPreferences().showStats ? [{ label: 'Total Foto', value: photoCount.toLocaleString('id-ID'), icon: ImageIcon }, { label: 'Issue', value: issueCount.toLocaleString('id-ID'), icon: BookOpen }, { label: 'LIVE', value: liveCount.toLocaleString('id-ID'), icon: HeartPulse }, { label: 'Rentang Arsip', value: rangeLabel, icon: CalendarDays }] : [];
 
   return <div className="mx-auto max-w-[1500px] space-y-4 pb-5">
     <div className="flex flex-wrap items-end justify-between gap-4 pb-3"><div><h1 className="text-[clamp(28px,2.3vw,38px)] font-extrabold tracking-tight leading-tight">Selamat datang di ChronoVista.</h1><p className="text-[17px] tracking-wide text-[#68737b]">Arsip Anda terus bertumbuh.</p></div></div>
