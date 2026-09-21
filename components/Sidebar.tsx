@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { logoutAction } from '@/app/(main)/actions';
 import { Aperture, BookOpen, CalendarDays, ImageIcon, LayoutDashboard, LogOut, Radio, Settings, Upload } from 'lucide-react';
 
-const navItems = [{ href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard }, { href: '/archive', label: 'Arsip Foto', icon: ImageIcon }, { href: '/timeline', label: 'Timeline', icon: CalendarDays }, { href: '/issues', label: 'Issue', icon: BookOpen }, { href: '/live', label: 'LIVE', icon: Radio }, { href: '/import', label: 'Import', icon: Upload }, { href: '/settings', label: 'Pengaturan', icon: Settings }];
+const navItems = [{ href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard }, { href: '/archive', label: 'Arsip Foto', icon: ImageIcon }, { href: '/timeline', label: 'Timeline', icon: CalendarDays }, { href: '/issues', label: 'Issue', icon: BookOpen }, { href: '/photo-books', label: 'Photo Book', icon: BookOpen }, { href: '/live', label: 'LIVE', icon: Radio }, { href: '/import', label: 'Import', icon: Upload }, { href: '/settings', label: 'Pengaturan', icon: Settings }];
 
 export function Sidebar({ displayName }: { displayName: string }) {
   const pathname = usePathname();

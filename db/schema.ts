@@ -101,6 +101,35 @@ export const issuePagePhotos = sqliteTable('issue_page_photos', {
   altText: text('alt_text'),
 }, (t) => [primaryKey({ columns: [t.pageId, t.photoId] })]);
 
+export const photoBooks = sqliteTable('photo_books', {
+  id: text('id').primaryKey(),
+  slug: text('slug').notNull().unique(),
+  title: text('title').notNull(),
+  subtitle: text('subtitle'),
+  photographer: text('photographer').notNull(),
+  year: integer('year').notNull(),
+  description: text('description'),
+  status: text('status').notNull().default('Draft'),
+  visibility: text('visibility').notNull().default('Private'),
+  template: text('template').notNull().default('Editorial'),
+  pageSize: text('page_size').notNull().default('A4'),
+  marginMm: integer('margin_mm').notNull().default(18),
+  coverPhotoId: text('cover_photo_id').references(() => photos.id, { onDelete: 'set null' }),
+  sourceIssueId: text('source_issue_id').references(() => issues.id, { onDelete: 'set null' }),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+  publishedAt: integer('published_at', { mode: 'timestamp' }),
+});
+
+export const bookPages = sqliteTable('book_pages', {
+  id: text('id').primaryKey(),
+  bookId: text('book_id').notNull().references(() => photoBooks.id, { onDelete: 'cascade' }),
+  pageNumber: integer('page_number').notNull(),
+  photoId: text('photo_id').references(() => photos.id, { onDelete: 'set null' }),
+  caption: text('caption'),
+  pageType: text('page_type').notNull().default('photo'),
+});
+
 export const liveSessions = sqliteTable('live_sessions', {
   id: text('id').primaryKey(),
   slug: text('slug').notNull().unique(),

@@ -1,0 +1,8 @@
+import Link from 'next/link';
+import { ArrowLeft, BookOpen, Images, LayoutGrid, Maximize2 } from 'lucide-react';
+
+const templates = [{ name: 'Editorial', icon: BookOpen, detail: 'Ritme foto dan caption dengan margin seimbang.', margin: '18 mm' }, { name: 'Minimal', icon: Images, detail: 'Ruang putih lebih luas untuk tiap foto.', margin: '25 mm' }, { name: 'Gallery', icon: LayoutGrid, detail: 'Tampilan foto besar dengan caption ringkas.', margin: '12 mm' }, { name: 'Full Bleed', icon: Maximize2, detail: 'Foto memenuhi halaman hingga tepi.', margin: '0 mm' }];
+
+export default function BookTemplatesPage() {
+  return <div className="mx-auto max-w-5xl pb-10"><Link href="/photo-books" className="flex items-center gap-2 text-sm text-[#0b6254]"><ArrowLeft size={16}/>Kembali ke Photo Book</Link><h1 className="mt-5 font-serif text-4xl">Template Photo Book</h1><p className="mt-2 text-sm text-[#617078]">Pilih gaya awal. Template dapat diganti saat buku diedit tanpa mengubah foto asli.</p><div className="mt-7 grid gap-4 sm:grid-cols-2">{templates.map(template => <article key={template.name} className="rounded border border-[#d5ded9] bg-white p-5"><div className="flex h-36 items-center justify-center rounded bg-[#edf1ee]"><template.icon size={62} strokeWidth={1} className="text-[#0b6254]"/></div><h2 className="mt-4 font-serif text-2xl">{template.name}</h2><p className="mt-1 text-sm text-[#617078]">{template.detail}</p><p className="mt-3 text-xs text-[#53646a]">Margin awal: {template.margin}</p><Link href={`/photo-books/new?template=${encodeURIComponent(template.name)}`} className="mt-4 inline-flex rounded border border-[#0b6254] px-4 py-2 text-sm text-[#0b6254]">Gunakan Template</Link></article>)}</div></div>;
+}
