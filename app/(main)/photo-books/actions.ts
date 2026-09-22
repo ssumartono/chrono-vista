@@ -16,11 +16,10 @@ const sizes = ['A4', 'A5', 'Square'];
 function resolveTemplate(value: string): { name: string; margin: number } {
   if (value.startsWith('custom:')) {
     const row = db.select().from(layoutTemplates).where(eq(layoutTemplates.id, value.slice(7))).get();
-    if (row) {
-      let settings: TemplateSettings = defaultTemplateSettings;
-      try { settings = { ...defaultTemplateSettings, ...JSON.parse(row.settingsJson) as Partial<TemplateSettings> }; } catch {}
-      return { name: value, margin: settings.top };
-    }
+    if (!row) throw new Error('Template tidak ditemukan. Pilih template lain.');
+    let settings: TemplateSettings = defaultTemplateSettings;
+    try { settings = { ...defaultTemplateSettings, ...JSON.parse(row.settingsJson) as Partial<TemplateSettings> }; } catch {}
+    return { name: value, margin: settings.top };
   }
   const found = builtInTemplates.find(template => template.name === value) ?? builtInTemplates[0];
   return { name: found.name, margin: found.margin };
@@ -34,7 +33,7 @@ export async function createPhotoBookAction(form: FormData) {
   if (!Number.isInteger(year) || year < 1900 || year > 2200) throw new Error('Tahun tidak valid.');
   const template = value(form, 'template', 50);
   const selectedTemplate = resolveTemplate(template);
-  const pageSize = value(form, 'pageSize', 20);
+  const pageSize = selectedTemplate.name.startsWith('custom:') ? 'A4' : value(form, 'pageSize', 20);
   const sourceIssueId = value(form, 'sourceIssueId', 100);
   const id = randomUUID();
   const slugBase = title.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 65) || 'photo-book';
@@ -70,8 +69,8 @@ export async function savePhotoBookAction(id: string, form: FormData) {
   const needsReview = ids.some(photoId => !viewerPhotos.some(asset => asset.photoId === photoId));
   const template = value(form, 'template', 50);
   const selectedTemplate = resolveTemplate(template);
-  const pageSize = value(form, 'pageSize', 20);
-  const marginMm = Number(value(form, 'marginMm', 3));
+  const pageSize = selectedTemplate.name.startsWith('custom:') ? 'A4' : value(form, 'pageSize', 20);
+  const marginMm = selectedTemplate.name.startsWith('custom:') ? selectedTemplate.margin : Number(value(form, 'marginMm', 3));
   if (!Number.isInteger(marginMm) || marginMm < 0 || marginMm > 50) throw new Error('Margin harus 0–50 mm.');
   const now = new Date();
   db.transaction(tx => {
@@ -88,6 +87,7 @@ export async function publishPhotoBookAction(id: string) {
   const user = await owner();
   const book = db.select().from(photoBooks).where(eq(photoBooks.id, id)).get();
   if (!book || book.status === 'Archived') throw new Error('Photo Book tidak ditemukan.');
+  if (book.template.startsWith('custom:') && !db.select({ id: layoutTemplates.id }).from(layoutTemplates).where(eq(layoutTemplates.id, book.template.slice(7))).get()) throw new Error('Template Photo Book tidak tersedia. Pilih template lain sebelum publikasi.');
   const pages = db.select({ photoId: bookPages.photoId, deletedAt: photos.deletedAt, viewerPath: assets.path }).from(bookPages).leftJoin(photos, eq(photos.id, bookPages.photoId)).leftJoin(assets, and(eq(assets.photoId, photos.id), eq(assets.type, 'viewer'))).where(eq(bookPages.bookId, id)).all();
   if (!book.title.trim() || !book.photographer.trim() || !book.coverPhotoId || !pages.length) throw new Error('Lengkapi judul, fotografer, sampul, dan halaman sebelum publikasi.');
   if (pages.some(page => !page.photoId || page.deletedAt || !page.viewerPath || !existsSync(page.viewerPath))) throw new Error('Ada halaman dengan foto yang tidak tersedia. Periksa buku sebelum publikasi.');
