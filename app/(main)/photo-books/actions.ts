@@ -6,13 +6,25 @@ import { and, asc, eq, inArray, isNull } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { db } from '@/db';
-import { assets, auditLogs, bookPages, issuePagePhotos, issuePages, issues, photoBooks, photos } from '@/db/schema';
+import { assets, auditLogs, bookPages, issuePagePhotos, issuePages, issues, layoutTemplates, photoBooks, photos } from '@/db/schema';
 import { getSession } from '@/lib/auth';
+import { builtInTemplates, defaultTemplateSettings, type TemplateSettings } from '@/lib/photo-book-template';
 
 async function owner() { const user = await getSession(); if (!user) throw new Error('Masuk kembali untuk mengelola Photo Book.'); return user; }
 const value = (form: FormData, key: string, length: number) => String(form.get(key) ?? '').trim().slice(0, length);
-const templates = ['Editorial', 'Minimal', 'Gallery', 'Full Bleed'];
 const sizes = ['A4', 'A5', 'Square'];
+function resolveTemplate(value: string): { name: string; margin: number } {
+  if (value.startsWith('custom:')) {
+    const row = db.select().from(layoutTemplates).where(eq(layoutTemplates.id, value.slice(7))).get();
+    if (row) {
+      let settings: TemplateSettings = defaultTemplateSettings;
+      try { settings = { ...defaultTemplateSettings, ...JSON.parse(row.settingsJson) as Partial<TemplateSettings> }; } catch {}
+      return { name: value, margin: settings.top };
+    }
+  }
+  const found = builtInTemplates.find(template => template.name === value) ?? builtInTemplates[0];
+  return { name: found.name, margin: found.margin };
+}
 
 export async function createPhotoBookAction(form: FormData) {
   const user = await owner();
@@ -20,7 +32,8 @@ export async function createPhotoBookAction(form: FormData) {
   if (!title) throw new Error('Judul Photo Book wajib diisi.');
   const year = Number(value(form, 'year', 4));
   if (!Number.isInteger(year) || year < 1900 || year > 2200) throw new Error('Tahun tidak valid.');
-  const template = value(form, 'template', 30);
+  const template = value(form, 'template', 50);
+  const selectedTemplate = resolveTemplate(template);
   const pageSize = value(form, 'pageSize', 20);
   const sourceIssueId = value(form, 'sourceIssueId', 100);
   const id = randomUUID();
@@ -30,7 +43,7 @@ export async function createPhotoBookAction(form: FormData) {
   db.transaction(tx => {
     const sourceIssue = sourceIssueId ? tx.select({ id: issues.id }).from(issues).where(eq(issues.id, sourceIssueId)).get() : null;
     const sourcePhotos = sourceIssue ? tx.select({ photoId: issuePagePhotos.photoId, caption: issuePagePhotos.caption }).from(issuePages).innerJoin(issuePagePhotos, eq(issuePagePhotos.pageId, issuePages.id)).innerJoin(photos, eq(photos.id, issuePagePhotos.photoId)).where(and(eq(issuePages.issueId, sourceIssue.id), isNull(photos.deletedAt))).orderBy(asc(issuePages.pageNumber)).all() : [];
-    tx.insert(photoBooks).values({ id, slug, title, subtitle: value(form, 'subtitle', 250) || null, photographer: value(form, 'photographer', 120) || user.displayName || user.username, year, description: value(form, 'description', 3000) || null, template: templates.includes(template) ? template : 'Editorial', pageSize: sizes.includes(pageSize) ? pageSize : 'A4', sourceIssueId: sourceIssue?.id ?? null, coverPhotoId: sourcePhotos[0]?.photoId ?? null, createdAt: now, updatedAt: now }).run();
+    tx.insert(photoBooks).values({ id, slug, title, subtitle: value(form, 'subtitle', 250) || null, photographer: value(form, 'photographer', 120) || user.displayName || user.username, year, description: value(form, 'description', 3000) || null, template: selectedTemplate.name, marginMm: selectedTemplate.margin, pageSize: sizes.includes(pageSize) ? pageSize : 'A4', sourceIssueId: sourceIssue?.id ?? null, coverPhotoId: sourcePhotos[0]?.photoId ?? null, createdAt: now, updatedAt: now }).run();
     sourcePhotos.forEach((photo, index) => tx.insert(bookPages).values({ id: randomUUID(), bookId: id, pageNumber: index + 1, photoId: photo.photoId, caption: photo.caption }).run());
     tx.insert(auditLogs).values({ id: randomUUID(), actorId: user.id, action: 'photo_book_created', entityType: 'photo_book', entityId: id, detailsJson: JSON.stringify({ title }), createdAt: now }).run();
   });
@@ -55,13 +68,14 @@ export async function savePhotoBookAction(id: string, form: FormData) {
   if (validIds.size !== ids.length) throw new Error('Ada foto yang tidak tersedia.');
   const viewerPhotos = ids.length ? db.select({ photoId: assets.photoId }).from(assets).where(and(inArray(assets.photoId, ids), eq(assets.type, 'viewer'))).all() : [];
   const needsReview = ids.some(photoId => !viewerPhotos.some(asset => asset.photoId === photoId));
-  const template = value(form, 'template', 30);
+  const template = value(form, 'template', 50);
+  const selectedTemplate = resolveTemplate(template);
   const pageSize = value(form, 'pageSize', 20);
   const marginMm = Number(value(form, 'marginMm', 3));
   if (!Number.isInteger(marginMm) || marginMm < 0 || marginMm > 50) throw new Error('Margin harus 0–50 mm.');
   const now = new Date();
   db.transaction(tx => {
-    tx.update(photoBooks).set({ title, subtitle: value(form, 'subtitle', 250) || null, photographer: value(form, 'photographer', 120) || user.displayName || user.username, year, description: value(form, 'description', 3000) || null, template: templates.includes(template) ? template : 'Editorial', pageSize: sizes.includes(pageSize) ? pageSize : 'A4', marginMm, coverPhotoId: ids[0] ?? null, status: needsReview ? 'Needs Review' : 'Draft', visibility: 'Private', publishedAt: null, updatedAt: now }).where(eq(photoBooks.id, id)).run();
+    tx.update(photoBooks).set({ title, subtitle: value(form, 'subtitle', 250) || null, photographer: value(form, 'photographer', 120) || user.displayName || user.username, year, description: value(form, 'description', 3000) || null, template: selectedTemplate.name, pageSize: sizes.includes(pageSize) ? pageSize : 'A4', marginMm, coverPhotoId: ids[0] ?? null, status: needsReview ? 'Needs Review' : 'Draft', visibility: 'Private', publishedAt: null, updatedAt: now }).where(eq(photoBooks.id, id)).run();
     tx.delete(bookPages).where(eq(bookPages.bookId, id)).run();
     ids.forEach((photoId, index) => tx.insert(bookPages).values({ id: randomUUID(), bookId: id, pageNumber: index + 1, photoId, caption: value(form, `caption-${photoId}`, 500) || null }).run());
     tx.insert(auditLogs).values({ id: randomUUID(), actorId: user.id, action: 'photo_book_saved', entityType: 'photo_book', entityId: id, createdAt: now }).run();

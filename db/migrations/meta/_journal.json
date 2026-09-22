@@ -15,6 +15,13 @@
       "when": 1790007955969,
       "tag": "0001_dazzling_sersi",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1790036904368,
+      "tag": "0002_empty_psylocke",
+      "breakpoints": true
     }
   ]
 }

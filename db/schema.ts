@@ -130,6 +130,17 @@ export const bookPages = sqliteTable('book_pages', {
   pageType: text('page_type').notNull().default('photo'),
 });
 
+export const layoutTemplates = sqliteTable('layout_templates', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  description: text('description'),
+  pageSize: text('page_size').notNull().default('A4'),
+  settingsJson: text('settings_json').notNull(),
+  elementsJson: text('elements_json').notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+});
+
 export const liveSessions = sqliteTable('live_sessions', {
   id: text('id').primaryKey(),
   slug: text('slug').notNull().unique(),
